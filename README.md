@@ -374,8 +374,23 @@ bootstrap.mylab.test bootkube.sh[2473]: I1030 22:03:50.188735       1 waitforceo
 bootstrap.mylab.test bootkube.sh[2473]: bootkube.service complete
 ```
 
+If something's wrong and you want to retry, destroy vm and delete disks with following command:
 
+```
+for x in bootstrap master-1 master-2 master-3 worker-1 worker-2 worker-3
+do
+  virsh destroy $x.mylab.test
+  virsh undefine $x.mylab.test --remove-all-storage
+done
+```
+
+
+```
 export KUBECONFIG=install_dir/auth/kubeconfig
+```
+
+
+Remove bootstrap from load balancer
 
 ```
 ssh lb.${CLUSTER_NAME}.${BASE_DOM} <<EOF
