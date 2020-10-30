@@ -32,14 +32,21 @@ PULL_SEC='<paste-pull-secret>'
 
 Download your pull secret from Red Hat OpenShift Cluster Manager and load into a variable. You can also copy paste the pull secret. The variable PULL_SEC should have your pull secret without any newlines. SSH key-ed25519 can be generated with following commands:
 
+```
 ssh-keygen -t d25519
+```
+
 Create a folder "rhcos-install" Download the RHCOS kernel and initramfs images
 
+```
 mkdir rhcos-install
 wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.5/4.5.6/rhcos-4.5.6-x86_64-installer-kernel-x86_64 -O ./rhcos-install/vmlinuz
 wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.5/4.5.6/rhcos-4.5.6-x86_64-installer-initramfs.x86_64.img -O ./rhcos-install/initramfs.img
+```
+
 Generate treeinfo
 
+```
 cat <<EOF > rhcos-install/.treeinfo
 [general]
 arch = x86_64
@@ -50,30 +57,40 @@ version = 4.5.6
 initrd = initramfs.img
 kernel = vmlinuz
 EOF
+```
+
 Download the RHCOS bios image wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.5/4.5.6/rhcos-4.5.6-x86_64-metal.x86_64.raw.gz
 
 Create folder for Vms disks and download Centos image
 
+```
 mkdir -p /home/vms
 wget https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2 -O /home/vms/${CLUSTER_NAME}-lb.qcow2
+```
+
 Create LB machine disk
 
+```
 virt-customize -a  /home/vms/${CLUSTER_NAME}-lb.qcow2 \
   --root-password password:redhat \
   --uninstall cloud-init \
-  --ssh-inject root:file:$SSH_KEY --selinux-relabel
+  --ssh-inject root:file:$SSH_KEY --selinux-relabel \
+```
+
 Create the machine
 
+```
 virt-install --import --name lb.${CLUSTER_NAME}.test \
   --disk /home/vms/${CLUSTER_NAME}-lb.qcow2,size=80 --memory 2048 --cpu host --vcpus 4 \
   --network network=${VIR_NET},mac=52:54:00:aa:04:00 --noreboot --noautoconsole \
-  --graphics vnc,listen=0.0.0.0
+  --graphics vnc,listen=0.0.0.0 \
+```
+
 Enter in LB Vm virsh console
 
 Configure load balancing (haproxy).
 
 ```
-
 CLUSTER_NAME=mylab
 BASE_DOM=test
 ssh -l root lb.${CLUSTER_NAME}.${BASE_DOM} <<EOF
