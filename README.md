@@ -27,12 +27,72 @@ virsh net-list
 ```
 
 
-Setup a dnsmask server and a dhcp server
+Setup a dnsmasq server and a dhcp server
 
+
+```
 yum -y install dnsmasq
+```
+
+Update hosts
+
+```
+echo '
+192.168.122.70 bootstrap.mylab.test
+192.168.122.71 lb.mylab.test
+192.168.122.72 master-1.mylab.test
+192.168.122.73 master-2.mylab.test
+192.168.122.74 master-3.mylab.test
+192.168.122.75 worker-1.mylab.test
+192.168.122.76 worker-2.mylab.test
+192.168.122.77 worker-3.mylab.test
+192.168.122.71 console-openshift-console.apps.mylab.test
+192.168.122.71 oauth-openshift.apps.mylab.test
+192.168.122.71 centos-myp.apps.mylab.test
+192.168.122.71 api.mylab.test api-int.mylab.test
+>> /etc/hosts
+```
+
+Create dnsmasq configuration
+
+```
+echo '
+strict-order
+except-interface=lo
+bind-dynamic
+interface=virbr0
+srv-host=_etcd-server-ssl._tcp.mylab.test,etcd-0.mylab.test,2380,10,10
+srv-host=_etcd-server-ssl._tcp.mylab.test,etcd-1.mylab.test,2380,10,10
+srv-host=_etcd-server-ssl._tcp.mylab.test,etcd-2.mylab.test,2380,10,10
+dhcp-range=192.168.122.2,192.168.122.254
+dhcp-no-override
+dhcp-authoritative
+dhcp-lease-max=253
+
+address=/apps.mylab.test/192.168.122.71
+cname=master-1.mylab.test,etcd-0.mylab.test
+cname=master-2.mylab.test,etcd-1.mylab.test
+cname=master-3.mylab.test,etcd-2.mylab.test
+cname=api.mylab.test,api-int.mylab.test
+
+dhcp-host=52:54:00:aa:04:01,192.168.122.70,bootstrap.mylab.test
+dhcp-host=52:54:00:aa:04:00,192.168.122.71,lb.mylab.test
+dhcp-host=52:54:00:aa:04:02,192.168.122.72,master-1.mylab.test
+dhcp-host=52:54:00:aa:04:03,192.168.122.73,master-2.mylab.test
+dhcp-host=52:54:00:aa:04:04,192.168.122.74,master-3.mylab.test
+dhcp-host=52:54:00:aa:04:05,192.168.122.75,worker-1.mylab.test
+dhcp-host=52:54:00:aa:04:06,192.168.122.76,worker-2.mylab.test
+dhcp-host=52:54:00:aa:04:07,192.168.122.77,worker-3.mylab.test
+dhcp-host=52:54:00:74:fc:13,192.168.122.78,fromdhcp
+> /etc/dnsmasq.conf
+```
+
+Restart dnsmasq
+
+```
 systemctl restart dnsmasq
 systemctl enable dnsmasq
-
+```
 
 # Installation Procedure
 
