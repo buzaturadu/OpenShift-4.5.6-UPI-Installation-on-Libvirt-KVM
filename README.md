@@ -1,5 +1,8 @@
 # OpenShift-4.5.6-UPI-Installation-on-Libvirt-KVM
 
+Openshift 4.5.6 UPI instalation for who wants to try, learn or teach how to deploy Opneshift 4 on his Server.
+Now let's check if your Server's OS it's up to date and install and enable libvirt/KVM to create the vm's 
+
 ```
 sudo su -
 yum update
@@ -8,12 +11,16 @@ systemctl start libvirtd
 systemctl enable libvirtd
 ```
 
-Create a new directory named for example ocp4 and go in it
+To keep everithing in one place create a new directory named for example ocp4 and go in it
 
 ```
 mkdir ocp4
 cd ocp4
-Make sure that you have "default" libvirt’s network running
+```
+
+When lbvirt it's installed network called "default" will be created. Just make sure that you have it by running:
+
+```
 virsh net-list
 ```
 
