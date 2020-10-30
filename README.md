@@ -59,7 +59,11 @@ kernel = vmlinuz
 EOF
 ```
 
-Download the RHCOS bios image wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.5/4.5.6/rhcos-4.5.6-x86_64-metal.x86_64.raw.gz
+Download the RHCOS bios image 
+
+```
+wget https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.5/4.5.6/rhcos-4.5.6-x86_64-metal.x86_64.raw.gz
+```
 
 Create folder for Vms disks and download Centos image
 
