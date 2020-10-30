@@ -1,5 +1,7 @@
 # OpenShift-4.5.6-UPI-Installation-on-Libvirt-KVM
 
+## Prerequisites
+
 Openshift 4.5.6 UPI instalation for who wants to try, learn or teach how to deploy Opneshift 4 on his Server.
 Now let's check if your Server's OS it's up to date and install and enable libvirt/KVM to create the vm's 
 
@@ -25,23 +27,35 @@ virsh net-list
 ```
 
 
-```
-VIR_NET="default"
-HOST_NET=$(ip -4 a s $(virsh net-info $VIR_NET | awk '/Bridge:/{print $2}') | awk '/inet /{print $2}')
-HOST_IP=$(echo $HOST_NET | cut -d '/' -f1)
-#DNS_DIR="/etc/NetworkManager/dnsmasq.d"
-BASE_DOM="test"
-WEB_PORT='1234'
-CLUSTER_NAME="mylab"
-SSH_KEY=<ssh pub key>
-PULL_SEC='<paste-pull-secret>'
-```
+Setup a dnsmask server and a dhcp server
 
-Download your pull secret from Red Hat OpenShift Cluster Manager and load into a variable. You can also copy paste the pull secret. The variable PULL_SEC should have your pull secret without any newlines. SSH key-ed25519 can be generated with following commands:
+yum -y install dnsmasq
+systemctl restart dnsmasq
+systemctl enable dnsmasq
+
+
+# Installation Procedure
+
+Create a ssh key-ed25519 with following commands:
 
 ```
 ssh-keygen -t d25519
 ```
+
+Now we have to set up the variables. Everithing can be left the same just the pull secret you have to use your own.
+You can copy paste the pull secret. The variable PULL_SEC should have your pull secret without any newlines
+
+```
+VIR_NET="default"
+HOST_NET=$(ip -4 a s $(virsh net-info $VIR_NET | awk '/Bridge:/{print $2}') | awk '/inet /{print $2}')
+HOST_IP=$(echo $HOST_NET | cut -d '/' -f1)
+BASE_DOM="test"
+WEB_PORT='1234'
+CLUSTER_NAME="mylab"
+SSH_KEY="/root/.ssh/id_ed25519.pub"
+PULL_SEC='<paste-pull-secret>'
+```
+
 
 Create a folder "rhcos-install" Download the RHCOS kernel and initramfs images
 
@@ -97,8 +111,6 @@ virt-install --import --name lb.${CLUSTER_NAME}.test \
   --graphics vnc,listen=0.0.0.0 \
 ```
 
-Enter in LB Vm virsh console
-
 Configure load balancing (haproxy).
 
 ```
@@ -112,71 +124,75 @@ semanage port -a -t http_port_t -p tcp 22623
 
 echo '
 global
-log 127.0.0.1 local2
-chroot /var/lib/haproxy
-pidfile /var/run/haproxy.pid
-maxconn 4000
-user haproxy
-group haproxy
-daemon
-stats socket /var/lib/haproxy/stats
+  log 127.0.0.1 local2
+  chroot /var/lib/haproxy
+  pidfile /var/run/haproxy.pid
+  maxconn 4000
+  user haproxy
+  group haproxy
+  daemon
+  stats socket /var/lib/haproxy/stats
 
 defaults
-mode tcp
-log global
-option tcplog
-option dontlognull
-option redispatch
-retries 3
-timeout queue 1m
-timeout connect 10s
-timeout client 1m
-timeout server 1m
-timeout check 10s
-maxconn 3000
+  mode tcp
+  log global
+  option tcplog
+  option dontlognull
+  option redispatch
+  retries 3
+  timeout queue 1m
+  timeout connect 10s
+  timeout client 1m
+  timeout server 1m
+  timeout check 10s
+  maxconn 3000
 # 6443 points to control plan
-frontend ${CLUSTER_NAME}-api *:6443
-default_backend master-api
+frontend mylab-api *:6443
+  default_backend master-api
 backend master-api
-balance source
-server bootstrap bootstrap.${CLUSTER_NAME}.${BASE_DOM}:6443 check
-server master-1 master-1.${CLUSTER_NAME}.${BASE_DOM}:6443 check
-server master-2 master-2.${CLUSTER_NAME}.${BASE_DOM}:6443 check
-server master-3 master-3.${CLUSTER_NAME}.${BASE_DOM}:6443 check
+  balance source
+  server bootstrap bootstrap.mylab.test:6443 check
+  server master-1 master-1.mylab.test:6443 check
+  server master-2 master-2.mylab.test:6443 check
+  server master-3 master-3.mylab.test:6443 check
 
 # 22623 points to control plane
-frontend ${CLUSTER_NAME}-mapi *:22623
-default_backend master-mapi
+frontend mylab-mapi *:22623
+  default_backend master-mapi
 backend master-mapi
-balance source
-server bootstrap bootstrap.${CLUSTER_NAME}.${BASE_DOM}:22623 check
-server master-1 master-1.${CLUSTER_NAME}.${BASE_DOM}:22623 check
-server master-2 master-2.${CLUSTER_NAME}.${BASE_DOM}:22623 check
-server master-3 master-3.${CLUSTER_NAME}.${BASE_DOM}:22623 check
+  balance source
+  server bootstrap bootstrap.mylab.test:22623 check
+  server master-1 master-1.mylab.test:22623 check
+  server master-2 master-2.mylab.test:22623 check
+  server master-3 master-3.mylab.test:22623 check
 
 # 80 points to worker nodes
-frontend ${CLUSTER_NAME}-http *:80
-default_backend ingress-http
+frontend mylab-http *:80
+  default_backend ingress-http
 backend ingress-http
-balance source
-server worker-1 worker-1.${CLUSTER_NAME}.${BASE_DOM}:80 check
-server worker-2 worker-2.${CLUSTER_NAME}.${BASE_DOM}:80 check
-server worker-3 worker-3.${CLUSTER_NAME}.${BASE_DOM}:80 check
+  balance source
+  server worker-1 worker-1.mylab.test:80 check
+  server worker-2 worker-2.mylab.test:80 check
+  server worker-3 worker-3.mylab.test:80 check
 
 # 443 points to master nodes
-frontend ${CLUSTER_NAME}-https *:443
-default_backend infra-https
+frontend mylab-https *:443
+  default_backend infra-https
 backend infra-https
-balance source
-server master-1 worker-1.${CLUSTER_NAME}.${BASE_DOM}:443 check
-server master-2 worker-2.${CLUSTER_NAME}.${BASE_DOM}:443 check
-server master-3 worker-3.${CLUSTER_NAME}.${BASE_DOM}:443 check
-' > /etc/haproxy/haproxy.cfg
-
-systemctl restart haproxy
-systemctl enable haproxy
-showmount -e
+  balance source
+  server master-1 master-1.mylab.test:443 check
+  server master-2 master-2.mylab.test:443 check
+  server master-3 master-3.mylab.test:443 check
+  server worker-1 worker-1.mylab.test:443 check
+  server worker-2 worker-2.mylab.test:443 check
+  server worker-3 worker-3.mylab.test:443 check
 EOF
+```
+
+Restart the dnsmasq
+
+```
+systemctl restart dnsmasq
 ```
 
 Download OpenShift client and install binaries and extract
@@ -184,22 +200,22 @@ Download OpenShift client and install binaries and extract
 ```
 wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.5.6/openshift-install-linux-4.5.6.tar.gz
 wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.5.6/openshift-client-linux-4.5.6.tar.gz
-```
-
-```
 tar xf openshift-install-linux-4.5.6.tar.gz
 tar xf openshift-client-linux-4.5.6.tar.gz
 rm -f README.md
 ```
 
-Create the installation directory for the OpenShift installer:
+Create the installation directory for the Openshift installer:
 
 ```
 mkdir install_dir
 ```
+
 Generate the install-config.yaml:
+Make sure you use your ssh key and pull secret
 
 ```
+cat <<EOF > install_dir/install-config.yaml
 apiVersion: v1
 baseDomain: test
 compute:
@@ -224,9 +240,10 @@ platform:
 fips: false
 pullSecret:<your secret>
 sshKey:<your key>
+EOF
 ```
 
-Generate the ignition file install-config.yaml need to be in folder install_dir
+Generate the ignition file consuming install-config.yaml
 
 ```
 ./openshift-install create ignition-configs --dir=./install_dir
@@ -239,7 +256,7 @@ iptables -I INPUT -p tcp -m tcp --dport ${WEB_PORT} -s ${HOST_NET} -j ACCEPT
 python -m SimpleHTTPServer ${WEB_PORT}
 ```
 
-Create the VMs, bootstrap, 3 workers and 3 masters
+Create the VMs -> bootstrap, 3 workers and 3 masters
 
 ```
 mac=1
@@ -271,4 +288,78 @@ for i in {1..3}; do
    --extra-args "nomodeset rd.neednet=1 coreos.inst=yes coreos.inst.install_dev=vda coreos.inst.image_url=http://${HOST_IP}:${WEB_PORT}/rhcos-4.5.6-x86_64-metal.x86_64.raw.gz coreos.inst.ignition_url=http://${HOST_IP}:${WEB_PORT}/install_dir/worker.ign"
    mac=$(( $mac + 1 ))
 done
+```
+
+After the initial setup the machines will shutdown. Start all of them back
+
+```
+for x in bootstrap master-1 master-2 master-3 worker-1 worker-2
+do
+  virsh start $x.${CLUSTER_NAME}
+done
+```
+
+Ssh into the bootstrap node and watch the bootkube.service service
+
+```
+ssh core@$bootstrap.${CLUSTER_NAME}.${BASE_DOM} journalctl -b -f -u bootkube.service
+```
+
+Output should be 
+
+```
+Waiting for CEO to finish...
+bootstrap.mylab.test bootkube.sh[2473]: I1030 22:03:50.185475       1 waitforceo.go:64] Cluster etcd operator bootstrapped successfully
+bootstrap.mylab.test bootkube.sh[2473]: I1030 22:03:50.188735       1 waitforceo.go:58] cluster-etcd-operator bootstrap etcd
+bootstrap.mylab.test bootkube.sh[2473]: bootkube.service complete
+```
+
+
+export KUBECONFIG=install_dir/auth/kubeconfig
+
+```
+ssh lb.${CLUSTER_NAME}.${BASE_DOM} <<EOF
+sed -i '/bootstrap\.${CLUSTER_NAME}\.${BASE_DOM}/d' /etc/haproxy/haproxy.cfg
+systemctl restart haproxy
+EOF
+```
+
+When all the cluster operators are fully available, it should look some thing like this:
+
+```
+oc get co
+```
+
+```
+NAME                                       VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE
+authentication                             4.5.6     True        False         False      79m
+cloud-credential                           4.5.6     True        False         False      95m
+cluster-autoscaler                         4.5.6     True        False         False      83m
+config-operator                            4.5.6     True        False         False      83m
+console                                    4.5.6     True        False         False      73m
+csi-snapshot-controller                    4.5.6     True        False         False      84m
+dns                                        4.5.6     True        False         False      91m
+etcd                                       4.5.6     True        False         False      91m
+image-registry                             4.5.6     True        False         False      84m
+ingress                                    4.5.6     True        False         False      84m
+insights                                   4.5.6     True        False         False      84m
+kube-apiserver                             4.5.6     True        False         False      90m
+kube-controller-manager                    4.5.6     True        False         False      90m
+kube-scheduler                             4.5.6     True        False         False      89m
+kube-storage-version-migrator              4.5.6     True        False         False      85m
+machine-api                                4.5.6     True        False         False      84m
+machine-approver                           4.5.6     True        False         False      89m
+machine-config                             4.5.6     True        False         False      90m
+marketplace                                4.5.6     True        False         False      84m
+monitoring                                 4.5.6     True        False         False      77m
+network                                    4.5.6     True        False         False      92m
+node-tuning                                4.5.6     True        False         False      92m
+openshift-apiserver                        4.5.6     True        False         False      85m
+openshift-controller-manager               4.5.6     True        False         False      85m
+openshift-samples                          4.5.6     True        False         False      79m
+operator-lifecycle-manager                 4.5.6     True        False         False      91m
+operator-lifecycle-manager-catalog         4.5.6     True        False         False      91m
+operator-lifecycle-manager-packageserver   4.5.6     True        False         False      85m
+service-ca                                 4.5.6     True        False         False      92m
+storage                                    4.5.6     True        False         False      84m
 ```
